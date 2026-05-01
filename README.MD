@@ -1,5 +1,7 @@
 # ISeeYou
 
+**Due to academic commitments, development of this project is currently suspended. If you are interested in taking over and maintaining it, please feel free to contact me.**
+
 _Also known as ICU_
 
 [![License](https://img.shields.io/github/license/MC-XiaoHei/ISeeYou)](LICENSE)
