@@ -42,11 +42,11 @@ ISeeYou is a simple and lightweight plugin to record player in `.mcpr` format. [
 
 ## Dependencies
 
-* [CommandAPI](https://docs.commandapi.dev/) 11.0.0 or higher
+CommandAPI 11.0.0 is bundled and isolated inside ISeeYou. No separate CommandAPI plugin is required.
 
 ### How to install
 
-1. **Install the Plugin**: Place the plugin file(and dependencies) in the plugins directory of the server, and restart the server.
+1. **Install the Plugin**: Place the plugin file in the plugins directory of the server, and restart the server.
 
 2. **Configure Settings**: Edit the `plugins/ISeeYou/icu.conf` file to adjust settings.
 

@@ -18,7 +18,7 @@ plugins {
 }
 
 group = "cn.xor7.xiaohei"
-version = "2.1.0"
+version = "2.1.1-leaf26"
 
 val pluginJson = leavesPluginJson {
     name = "ISeeYou"
@@ -28,11 +28,6 @@ val pluginJson = leavesPluginJson {
     website = "https://github.com/MC-XiaoHei/ISeeYou"
     foliaSupported = true
     apiVersion = libs.versions.leavesApi.extractMCVersion()
-    dependencies.server(
-        name = "CommandAPI",
-        joinClasspath = true,
-        load = BEFORE,
-    )
     listOf(
         "GrimAC",
         "LightAntiCheat",
@@ -109,8 +104,8 @@ dependencies {
         implementation(kotlin("stdlib-jdk8"))
         implementation(libs.configurateHocon)
         implementation(libs.configurateKotlin)
-        compileOnly(libs.commandApiCore)
-        compileOnly(libs.commandApiKotlin)
+        implementation(libs.commandApiShade)
+        implementation(libs.commandApiKotlin)
     }
 
     apply `anti-cheat apis`@{
@@ -157,6 +152,7 @@ tasks {
 
     shadowJar {
         archiveFileName = "${project.name}-${version}.jar"
+        relocate("dev.jorel.commandapi", "cn.xor7.xiaohei.icu.libs.commandapi")
     }
 
     build {

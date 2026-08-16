@@ -15,7 +15,7 @@ leavesApi = { group = "org.leavesmc.leaves", name = "leaves-api", version.ref = 
 leavesDevBundle = { group = "org.leavesmc.leaves", name = "dev-bundle", version.ref = "leavesApi" }
 configurateHocon = { group = "org.spongepowered", name = "configurate-hocon", version.ref = "configurate" }
 configurateKotlin = { group = "org.spongepowered", name = "configurate-extra-kotlin", version.ref = "configurate" }
-commandApiCore = { group = "dev.jorel", name = "commandapi-paper-core", version.ref = "commandApi" }
+commandApiShade = { group = "dev.jorel", name = "commandapi-paper-shade", version.ref = "commandApi" }
 commandApiKotlin = { group = "dev.jorel", name = "commandapi-kotlin-paper", version.ref = "commandApi" }
 # anti-cheat-apis
 negativityApi = { group = "com.github.Elikill58", name = "Negativity", version.ref = "negativity" }
