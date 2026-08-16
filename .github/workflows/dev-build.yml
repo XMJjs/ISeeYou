@@ -43,17 +43,58 @@ jobs:
       - name: Verify bundled CommandAPI
         shell: bash
         run: |
-          plugin_jar=$(find build/libs -maxdepth 1 -name 'ISeeYou-*.jar' -print -quit)
-          test -n "$plugin_jar"
-          jar tf "$plugin_jar" | grep -q '^cn/xor7/xiaohei/icu/libs/commandapi/CommandAPI.class$'
-          jar tf "$plugin_jar" | grep -q '^cn/xor7/xiaohei/icu/libs/commandapi/nms/NMS_26_1.class$'
-          jar tf "$plugin_jar" | grep -q '^cn/xor7/xiaohei/icu/libs/commandapi/nms/PaperNMS_26_1.class$'
-          unzip -p "$plugin_jar" META-INF/maven/dev.jorel/commandapi-paper-shade/pom.properties |
-            grep -q '^version=11\.2\.0$'
-          if unzip -p "$plugin_jar" paper-plugin.yml leaves-plugin.json 2>/dev/null | grep -q 'CommandAPI'; then
+          shopt -s nullglob
+          plugin_jars=(build/libs/ISeeYou-*.jar)
+          if (( ${#plugin_jars[@]} == 0 )); then
+            echo 'No deployable ISeeYou JAR was produced in build/libs.' >&2
+            ls -la build/libs >&2 || true
+            exit 1
+          fi
+
+          plugin_jar=''
+          entries_file="$RUNNER_TEMP/iseeyou-jar-entries.txt"
+          for candidate in "${plugin_jars[@]}"; do
+            unzip -Z1 "$candidate" > "$entries_file"
+            if grep -Fxq 'cn/xor7/xiaohei/icu/libs/commandapi/CommandAPI.class' "$entries_file"; then
+              plugin_jar="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$plugin_jar" ]]; then
+            echo 'No ISeeYou JAR contains the relocated CommandAPI classes.' >&2
+            printf 'Candidate: %s\n' "${plugin_jars[@]}" >&2
+            exit 1
+          fi
+
+          require_entry() {
+            if ! grep -Fxq "$1" "$entries_file"; then
+              echo "Missing required JAR entry: $1" >&2
+              exit 1
+            fi
+          }
+          require_entry 'cn/xor7/xiaohei/icu/libs/commandapi/nms/NMS_26_1.class'
+          require_entry 'cn/xor7/xiaohei/icu/libs/commandapi/nms/PaperNMS_26_1.class'
+
+          properties_file="$RUNNER_TEMP/commandapi-paper-shade.properties"
+          unzip -p "$plugin_jar" META-INF/maven/dev.jorel/commandapi-paper-shade/pom.properties > "$properties_file"
+          if ! grep -Fxq 'version=11.2.0' "$properties_file"; then
+            echo 'Bundled CommandAPI version is not 11.2.0.' >&2
+            cat "$properties_file" >&2
+            exit 1
+          fi
+
+          metadata_file="$RUNNER_TEMP/iseeyou-plugin-metadata.txt"
+          : > "$metadata_file"
+          for metadata in paper-plugin.yml leaves-plugin.json; do
+            if grep -Fxq "$metadata" "$entries_file"; then
+              unzip -p "$plugin_jar" "$metadata" >> "$metadata_file"
+            fi
+          done
+          if grep -q 'CommandAPI' "$metadata_file"; then
             echo 'External CommandAPI dependency is still present in plugin metadata.' >&2
             exit 1
           fi
+          echo "Verified deployable JAR: $plugin_jar"
 
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v4
