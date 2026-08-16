@@ -18,7 +18,7 @@ plugins {
 }
 
 group = "cn.xor7.xiaohei"
-version = "2.1.1-leaf26"
+version = "2.1.2-leaf26"
 
 val pluginJson = leavesPluginJson {
     name = "ISeeYou"
@@ -82,7 +82,6 @@ val pluginYaml = paperPluginYaml {
 }
 
 val runServerPlugins = runPaper.downloadPluginsSpec {
-    modrinth("commandapi", "epl0dnHR") // 10.1.2-Mojmap
     modrinth("luckperms", "v5.5.0-bukkit")
     modrinth("themis-anti-cheat", "0.17.6")
 }

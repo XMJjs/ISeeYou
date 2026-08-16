@@ -42,7 +42,7 @@ ISeeYou is a simple and lightweight plugin to record player in `.mcpr` format. [
 
 ## Dependencies
 
-CommandAPI 11.0.0 is bundled and isolated inside ISeeYou. No separate CommandAPI plugin is required.
+CommandAPI 11.2.0 is bundled and isolated inside ISeeYou for Minecraft 26.1 compatibility. No separate CommandAPI plugin is required.
 
 ### How to install
 

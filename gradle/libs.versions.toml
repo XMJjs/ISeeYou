@@ -4,7 +4,7 @@ leavesweightUserdev = "2.1.0-SNAPSHOT"
 shadow = "9.0.0-rc1"
 runPaper = "2.3.1"
 resourceFactory = "1.0.0"
-commandApi = "11.0.0"
+commandApi = "11.2.0"
 configurate = "4.2.0"
 # anti-cheat-apis
 grim = "1.0.0-8ad0b94"

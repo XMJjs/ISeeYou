@@ -37,6 +37,10 @@ jobs:
           plugin_jar=$(find build/libs -maxdepth 1 -name 'ISeeYou-*.jar' -print -quit)
           test -n "$plugin_jar"
           jar tf "$plugin_jar" | grep -q '^cn/xor7/xiaohei/icu/libs/commandapi/CommandAPI.class$'
+          jar tf "$plugin_jar" | grep -q '^cn/xor7/xiaohei/icu/libs/commandapi/nms/NMS_26_1.class$'
+          jar tf "$plugin_jar" | grep -q '^cn/xor7/xiaohei/icu/libs/commandapi/nms/PaperNMS_26_1.class$'
+          unzip -p "$plugin_jar" META-INF/maven/dev.jorel/commandapi-paper-shade/pom.properties |
+            grep -q '^version=11\.2\.0$'
           if unzip -p "$plugin_jar" paper-plugin.yml leaves-plugin.json 2>/dev/null | grep -q 'CommandAPI'; then
             echo 'External CommandAPI dependency is still present in plugin metadata.' >&2
             exit 1
