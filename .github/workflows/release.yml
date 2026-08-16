@@ -68,9 +68,17 @@ jobs:
 
           properties_file="$RUNNER_TEMP/commandapi-paper-shade.properties"
           unzip -p "$plugin_jar" META-INF/maven/dev.jorel/commandapi-paper-shade/pom.properties > "$properties_file"
-          if ! grep -Fxq 'version=11.2.0' "$properties_file"; then
-            echo 'Bundled CommandAPI version is not 11.2.0.' >&2
-            cat "$properties_file" >&2
+          bundled_version=''
+          while IFS='=' read -r key value; do
+            key="${key%$'\r'}"
+            value="${value%$'\r'}"
+            if [[ "$key" == 'version' ]]; then
+              bundled_version="$value"
+              break
+            fi
+          done < "$properties_file"
+          if [[ "$bundled_version" != '11.2.0' ]]; then
+            echo "Bundled CommandAPI version is '${bundled_version:-missing}', expected '11.2.0'." >&2
             exit 1
           fi
 
