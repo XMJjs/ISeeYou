@@ -18,7 +18,7 @@ plugins {
 }
 
 group = "cn.xor7.xiaohei"
-version = "2.1.2-leaf26"
+version = "2.1.3-leaf26"
 
 val pluginJson = leavesPluginJson {
     name = "ISeeYou"

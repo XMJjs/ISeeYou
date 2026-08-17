@@ -1,6 +1,7 @@
 package cn.xor7.xiaohei.icu.commands
 
 import cn.xor7.xiaohei.icu.listeners.instantReplayListener
+import cn.xor7.xiaohei.icu.plugin
 import cn.xor7.xiaohei.icu.utils.module
 import cn.xor7.xiaohei.icu.utils.perms
 import cn.xor7.xiaohei.icu.utils.sendError
@@ -36,11 +37,21 @@ fun registerInstantReplayCommand() = commandTree("instantreplay") {
                 }
             }
 
-            val minutes = instantReplayListener.triggerInstantReplaySave(player)
-            if (minutes > 0) {
-                sender.sendSuccess("Saved Instant Replay for player '${player.name}' for about $minutes minutes (may not accurate)")
-            } else {
-                sender.sendError("No Instant Replay data found for player '${player.name}', are you trigger instant replay too fast?")
+            val playerName = player.name
+            instantReplayListener.triggerInstantReplaySave(player) { minutes ->
+                val notify = {
+                    if (minutes > 0) {
+                        sender.sendSuccess("Instant Replay save requested for player '$playerName' for about $minutes minutes (may not accurate)")
+                    } else {
+                        sender.sendError("No Instant Replay data found for player '$playerName', are you trigger instant replay too fast?")
+                    }
+                }
+
+                if (sender is Player) {
+                    sender.scheduler.run(plugin, { notify() }, {})
+                } else {
+                    plugin.server.globalRegionScheduler.run(plugin) { notify() }
+                }
             }
         }
     }

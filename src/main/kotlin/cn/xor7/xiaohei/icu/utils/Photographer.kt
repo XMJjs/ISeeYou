@@ -10,8 +10,8 @@ import java.util.UUID
 import java.util.UUID.randomUUID
 import kotlin.collections.set
 
-val photographers = mutableSetOf<UUID>()
-val player2PhotographerMap = mutableMapOf<UUID, Photographer>()
+val photographers: MutableSet<UUID> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+val player2PhotographerMap = java.util.concurrent.ConcurrentHashMap<UUID, Photographer>()
 val allPhotographers: Collection<Photographer>
     get() = Bukkit.getPhotographerManager().photographers
 
@@ -27,14 +27,20 @@ fun createPhotographer(
     it?.let { photographers.add(it.uniqueId) }
 }
 
-fun Photographer.removePhotographer(save: Boolean = true) {
-    try {
+fun Photographer.removePhotographer(save: Boolean = true): Boolean {
+    return try {
         this.stopRecording(true, save)
+        photographers.remove(this.uniqueId)
+        player2PhotographerMap.entries.removeIf { it.value.uniqueId == this.uniqueId }
+        true
     } catch (e: Exception) {
-        plugin.logger.warning("Err while removing photographer ${this.name}: ${e.message}")
+        plugin.logger.log(
+            java.util.logging.Level.SEVERE,
+            "Error while removing photographer ${this.name}; keeping it tracked for retry",
+            e,
+        )
+        false
     }
-    photographers.remove(this.uniqueId)
-    player2PhotographerMap.entries.removeIf { it.value.uniqueId == this.uniqueId }
 }
 
 fun removeAllPhotographers() = photographers.toSet().forEach {

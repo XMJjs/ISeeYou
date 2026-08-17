@@ -23,27 +23,28 @@ fun <T : Listener> registerListener(listener: T) {
     plugin.server.pluginManager.registerEvents(listener, plugin)
 }
 
-fun <T : Listener> registerListenerIfAbsent(listener: T) {
-    val type = listener::class as KClass<*>
+fun <T : Listener> registerListenerIfAbsent(type: KClass<T>, factory: () -> T) {
     if (listeners.containsKey(type)) return
-    registerListener(listener)
+    registerListener(factory())
 }
 
 fun registerOrUpdateListeners() {
-    registerListenerIfAbsent(SimpleRecordListener())
+    registerListenerIfAbsent(SimpleRecordListener::class, ::SimpleRecordListener)
 
-    if (module.instantReplay.enable) registerListenerIfAbsent(InstantReplayListener())
+    if (module.instantReplay.enable) {
+        registerListenerIfAbsent(InstantReplayListener::class, ::InstantReplayListener)
+    }
 
     module.recordSuspicious.apply {
-        if (enable) registerListenerIfAbsent(AntiCheatListener())
+        if (enable) registerListenerIfAbsent(AntiCheatListener::class, ::AntiCheatListener)
         else return
 
-        if (grim) registerListenerIfAbsent(GrimACListener())
-        if (lightAntiCheat) registerListenerIfAbsent(LightAntiCheatListener())
-        if (matrix) registerListenerIfAbsent(MatrixListener())
-        if (negativity) registerListenerIfAbsent(NegativityListener())
-        if (spartan) registerListenerIfAbsent(SpartanListener())
-        if (themis) registerListenerIfAbsent(ThemisListener())
-        if (vulcan) registerListenerIfAbsent(VulcanListener())
+        if (grim) registerListenerIfAbsent(GrimACListener::class, ::GrimACListener)
+        if (lightAntiCheat) registerListenerIfAbsent(LightAntiCheatListener::class, ::LightAntiCheatListener)
+        if (matrix) registerListenerIfAbsent(MatrixListener::class, ::MatrixListener)
+        if (negativity) registerListenerIfAbsent(NegativityListener::class, ::NegativityListener)
+        if (spartan) registerListenerIfAbsent(SpartanListener::class, ::SpartanListener)
+        if (themis) registerListenerIfAbsent(ThemisListener::class, ::ThemisListener)
+        if (vulcan) registerListenerIfAbsent(VulcanListener::class, ::VulcanListener)
     }
 }

@@ -17,7 +17,8 @@ import org.bukkit.event.player.PlayerQuitEvent
 import org.leavesmc.leaves.entity.photographer.Photographer
 
 class SimpleRecordListener : Listener {
-    private val highSpeedPausedPhotographers = mutableSetOf<Photographer>()
+    private val highSpeedPausedPhotographers: MutableSet<Photographer> =
+        java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     fun onPlayerJoin(event: PlayerJoinEvent) {

@@ -2,6 +2,7 @@ package cn.xor7.xiaohei.icu.utils
 
 import org.bukkit.entity.Player
 import java.io.File
+import java.util.UUID.randomUUID
 
 fun createRecordFile(path: String, player: Player): File {
     val recordPath: String = path
@@ -11,9 +12,6 @@ fun createRecordFile(path: String, player: Player): File {
     val recordDir = File(recordPath)
     if (!recordDir.exists() && !recordDir.mkdirs()) throw RuntimeException("Error when create record directory: $recordPath")
 
-    val recordFile = recordDir.resolve("${getNowDateString()}.mcpr")
-    if (recordFile.exists()) recordFile.delete()
-    if (!recordFile.createNewFile()) throw RuntimeException("Error when create record file: $recordFile")
-
-    return recordFile
+    val suffix = randomUUID().toString().substring(0, 8)
+    return recordDir.resolve("${getNowDateString()}-$suffix.mcpr")
 }

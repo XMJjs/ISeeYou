@@ -98,7 +98,7 @@ data class InstantReplayConfig(
 
     init {
         if (length < 1) throw IllegalArgumentException("Instant replay length must be at least 1 minute")
-        if (interval < 1) throw IllegalArgumentException("Instant replay interval must be at least 1 second")
+        if (interval < 1) throw IllegalArgumentException("Instant replay interval must be at least 1 minute")
         if (length < interval) throw IllegalArgumentException("Instant replay length must be greater than or equal to interval")
         if (path.isBlank()) throw IllegalArgumentException("Instant replay path cannot be blank")
     }

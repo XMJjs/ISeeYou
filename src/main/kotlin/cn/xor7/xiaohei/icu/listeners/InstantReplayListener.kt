@@ -15,23 +15,34 @@ import org.bukkit.event.player.PlayerQuitEvent
 import org.leavesmc.leaves.entity.photographer.Photographer
 import java.util.*
 import java.util.UUID.randomUUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.atomic.AtomicBoolean
 
 lateinit var instantReplayListener: InstantReplayListener
 
 class InstantReplayListener : Listener {
-    val instantReplayPhotographers = mutableMapOf<UUID, MutableSet<Photographer>>()
+    private val instantReplayPhotographers =
+        ConcurrentHashMap<UUID, ConcurrentLinkedDeque<InstantReplaySegment>>()
+    private val discardedSegments =
+        ConcurrentHashMap<UUID, InstantReplaySegment>()
+    private val creatingPlayers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     init {
         instantReplayListener = this
-        Bukkit.getPluginManager().registerEvents(this, plugin)
         Bukkit.getGlobalRegionScheduler().runAtFixedRate(
             plugin,
             {
+                retryDiscardedSegments()
                 if (!module.instantReplay.enable) return@runAtFixedRate
                 Bukkit.getOnlinePlayers()
                     .filter(Player::isOnline)
                     .forEach { player ->
-                        triggerOneInstantReplayPhotographer(player)
+                        player.scheduler.run(
+                            plugin,
+                            { triggerOneInstantReplayPhotographer(player) },
+                            {},
+                        )
                     }
             },
             1, module.instantReplay.intervalTicks,
@@ -40,6 +51,7 @@ class InstantReplayListener : Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     fun onPlayerJoin(event: PlayerJoinEvent) {
+        if (!module.instantReplay.enable) return
         val player = event.player
         if (!instantReplayPhotographers[player.uniqueId].isNullOrEmpty()) return
         triggerOneInstantReplayPhotographer(player)
@@ -47,41 +59,137 @@ class InstantReplayListener : Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     fun onPlayerQuit(event: PlayerQuitEvent) {
-        val player = event.player
-        instantReplayPhotographers[player.uniqueId]?.forEach { it.removePhotographer(false) }
-        instantReplayPhotographers.remove(player.uniqueId)
+        val playerId = event.player.uniqueId
+        instantReplayPhotographers.remove(playerId)?.forEach { segment ->
+            stopDiscardedSegment(segment)
+        }
     }
 
-    fun triggerInstantReplaySave(player: Player): Int {
-        if (!module.instantReplay.enable) return 0
-        val photographers = instantReplayPhotographers[player.uniqueId]
-        if (photographers.isNullOrEmpty()) return 0
-        val photographer = photographers.first()
-        val minutes = photographers.size
-        photographers.remove(photographer)
-        photographer.removePhotographer()
-        return minutes * module.instantReplay.interval
+    fun triggerInstantReplaySave(player: Player, completed: (Int) -> Unit) {
+        if (!module.instantReplay.enable) {
+            completed(0)
+            return
+        }
+
+        val segments = instantReplayPhotographers[player.uniqueId]
+        val segment = segments?.pollFirst()
+        if (segment == null) {
+            completed(0)
+            return
+        }
+
+        if (!segment.stopping.compareAndSet(false, true)) {
+            segments.addFirst(segment)
+            completed(0)
+            return
+        }
+
+        segment.photographer.scheduler.run(
+            plugin,
+            {
+                if (segment.photographer.removePhotographer()) {
+                    val minutes =
+                        ((System.currentTimeMillis() - segment.startedAtMillis) / 60_000L)
+                            .coerceAtLeast(1L)
+                            .coerceAtMost(module.instantReplay.length.toLong())
+                            .toInt()
+                    completed(minutes)
+                } else {
+                    segment.stopping.set(false)
+                    requeueSegment(player.uniqueId, segment)
+                    completed(0)
+                }
+            },
+            {
+                segment.stopping.set(false)
+                requeueSegment(player.uniqueId, segment)
+                completed(0)
+            },
+        )
     }
 
     private fun triggerOneInstantReplayPhotographer(player: Player) {
-        val photographer = createOneInstantReplayPhotographer(player)
-        val recordFile = createRecordFile(module.instantReplay.path, player)
+        if (!creatingPlayers.add(player.uniqueId)) return
+        var photographer: Photographer? = null
+        try {
+            val createdPhotographer = createOneInstantReplayPhotographer(player)
+            photographer = createdPhotographer
+            val recordFile = createRecordFile(module.instantReplay.path, player)
 
-        photographer.setRecordFile(recordFile)
-        photographer.setFollowPlayer(player)
-        instantReplayPhotographers
-            .computeIfAbsent(player.uniqueId) { LinkedHashSet() }
-            .add(photographer)
+            createdPhotographer.setRecordFile(recordFile)
+            createdPhotographer.setFollowPlayer(player)
+            val segment = InstantReplaySegment(
+                photographer = createdPhotographer,
+                startedAtMillis = System.currentTimeMillis(),
+            )
+            instantReplayPhotographers
+                .computeIfAbsent(player.uniqueId) { ConcurrentLinkedDeque() }
+                .addLast(segment)
 
-        photographer.scheduler.runDelayed(
+            createdPhotographer.scheduler.runDelayed(
+                plugin,
+                {
+                    val segments = instantReplayPhotographers[player.uniqueId]
+                    if (
+                        segments?.remove(segment) == true &&
+                        segment.stopping.compareAndSet(false, true)
+                    ) {
+                        if (!createdPhotographer.removePhotographer(false)) {
+                            segment.stopping.set(false)
+                            discardedSegments[createdPhotographer.uniqueId] = segment
+                        } else if (segments.isEmpty()) {
+                            instantReplayPhotographers.remove(player.uniqueId, segments)
+                        }
+                    }
+                },
+                {},
+                module.instantReplay.lengthTicks,
+            )
+        } catch (e: Exception) {
+            photographer?.let {
+                stopDiscardedSegment(
+                    InstantReplaySegment(
+                        photographer = it,
+                        startedAtMillis = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            throw e
+        } finally {
+            creatingPlayers.remove(player.uniqueId)
+        }
+    }
+
+    private fun requeueSegment(playerId: UUID, segment: InstantReplaySegment) {
+        val segments = instantReplayPhotographers[playerId]
+        if (segments != null) {
+            segments.addFirst(segment)
+        } else {
+            stopDiscardedSegment(segment)
+        }
+    }
+
+    private fun stopDiscardedSegment(segment: InstantReplaySegment) {
+        discardedSegments[segment.photographer.uniqueId] = segment
+        if (!segment.stopping.compareAndSet(false, true)) return
+
+        segment.photographer.scheduler.run(
             plugin,
             {
-                photographer.removePhotographer(false)
-                instantReplayPhotographers[player.uniqueId]?.remove(photographer)
+                if (segment.photographer.removePhotographer(false)) {
+                    discardedSegments.remove(segment.photographer.uniqueId, segment)
+                } else {
+                    segment.stopping.set(false)
+                }
             },
-            {},
-            module.instantReplay.lengthTicks,
+            { segment.stopping.set(false) },
         )
+    }
+
+    private fun retryDiscardedSegments() {
+        discardedSegments.values.forEach { segment ->
+            stopDiscardedSegment(segment)
+        }
     }
 
     private fun createOneInstantReplayPhotographer(player: Player): Photographer =
@@ -92,3 +200,9 @@ class InstantReplayListener : Listener {
             "Error when create instant replay photographer for player: {name:${player.name},UUID:${player.uniqueId}}",
         )
 }
+
+data class InstantReplaySegment(
+    val photographer: Photographer,
+    val startedAtMillis: Long,
+    val stopping: AtomicBoolean = AtomicBoolean(false),
+)
