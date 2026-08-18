@@ -122,6 +122,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # 关键：显式指定 tag_name，不依赖 github.ref
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
           files: ${{ steps.verify.outputs.artifact_path }}
           generate_release_notes: true
           fail_on_unmatched_files: true
