@@ -1,19 +1,23 @@
-name: "Release"
+name: Build and Publish Release
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release:
-    name: Build and publish release
+  build-and-publish:
+    name: Build, verify and publish release
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -27,11 +31,14 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Build deployable plugin JAR
         run: ./gradlew --no-daemon clean build
 
       - name: Verify bundled CommandAPI
+        id: verify
         shell: bash
         run: |
           shopt -s nullglob
@@ -93,20 +100,15 @@ jobs:
             echo 'External CommandAPI dependency is still present in plugin metadata.' >&2
             exit 1
           fi
+
           echo "Verified deployable JAR: $plugin_jar"
+          echo "artifact_path=$PWD/$plugin_jar" >> "$GITHUB_OUTPUT"
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ISeeYou-${{ github.ref_name }}
-          path: build/libs/ISeeYou-*.jar
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Publish GitHub release assets
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/ISeeYou-*.jar
-          fail_on_unmatched_files: true
+          files: ${{ steps.verify.outputs.artifact_path }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
